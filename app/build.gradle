@@ -6,6 +6,16 @@ plugins {
     id 'com.google.dagger.hilt.android'
 }
 
+def firebaseProperties = new Properties()
+def firebasePropertiesFile = rootProject.file('firebase.properties')
+if (firebasePropertiesFile.exists()) {
+    firebasePropertiesFile.withInputStream { firebaseProperties.load(it) }
+}
+def firebaseApiKey = firebaseProperties.getProperty('FIREBASE_API_KEY', '')
+if (firebaseApiKey && !(firebaseApiKey ==~ /[A-Za-z0-9_-]+/)) {
+    throw new GradleException('FIREBASE_API_KEY has an invalid format')
+}
+
 android {
     namespace 'com.taskplanner.app'
     compileSdk 35
@@ -19,6 +29,7 @@ android {
 
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         vectorDrawables.useSupportLibrary = true
+        buildConfigField 'String', 'FIREBASE_API_KEY', '"' + firebaseApiKey + '"'
     }
 
     buildTypes {

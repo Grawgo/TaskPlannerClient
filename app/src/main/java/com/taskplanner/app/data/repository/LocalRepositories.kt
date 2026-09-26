@@ -6,27 +6,29 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import com.taskplanner.app.data.local.SearchHistoryDao
 import com.taskplanner.app.data.local.SearchHistoryEntity
+import com.taskplanner.app.domain.repository.AuthRepository
 import com.taskplanner.app.domain.repository.SearchHistoryRepository
 import com.taskplanner.app.domain.repository.SessionProvider
 import com.taskplanner.app.domain.repository.ThemeRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 private val Context.settingsStore by preferencesDataStore(name = "task_planner_settings")
 
-class NoSessionProvider @Inject constructor() : SessionProvider {
-    override suspend fun idToken(forceRefresh: Boolean): String? = null
-    override fun currentUid(): String? = null
-}
-
 class RoomSearchHistoryRepository @Inject constructor(
     private val dao: SearchHistoryDao,
     private val session: SessionProvider,
+    private val auth: AuthRepository,
 ) : SearchHistoryRepository {
-    override fun observe(): Flow<List<String>> = session.currentUid()?.let(dao::observe) ?: flowOf(emptyList())
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun observe(): Flow<List<String>> = auth.authState.flatMapLatest { user ->
+        user?.uid?.let(dao::observe) ?: flowOf(emptyList())
+    }
     override suspend fun remember(query: String) {
         val uid = session.currentUid() ?: return
         val clean = query.trim().take(120)

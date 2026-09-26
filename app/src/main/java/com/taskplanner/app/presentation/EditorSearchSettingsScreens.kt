@@ -33,6 +33,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -41,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
@@ -170,8 +172,9 @@ fun SearchScreen(viewModel: SearchViewModel, onOpen: (String) -> Unit, onLogin: 
 }
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onLogin: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onLogin: () -> Unit, onSignedOut: () -> Unit) {
     val darkMode by viewModel.darkMode.collectAsStateWithLifecycle()
+    val user by viewModel.user.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize()) {
         PlannerHeader("Настройки")
         Row(
@@ -186,19 +189,99 @@ fun SettingsScreen(viewModel: SettingsViewModel, onLogin: () -> Unit) {
             Switch(checked = darkMode, onCheckedChange = viewModel::setDarkMode)
         }
         Text("Аккаунт", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
-        OutlinedButton(onClick = onLogin, modifier = Modifier.padding(horizontal = 24.dp)) { Text("Войти в аккаунт") }
+        if (user == null) {
+            OutlinedButton(onClick = onLogin, modifier = Modifier.padding(horizontal = 24.dp)) { Text("Войти в аккаунт") }
+        } else {
+            Text(user?.email ?: "Аккаунт", modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            OutlinedButton(
+                onClick = { viewModel.signOut(); onSignedOut() },
+                modifier = Modifier.padding(horizontal = 24.dp),
+            ) { Text("Выйти из аккаунта") }
+        }
     }
 }
 
 @Composable
-fun LoginPreviewScreen(onBack: () -> Unit) {
+fun AuthScreen(viewModel: AuthViewModel, onBack: () -> Unit, onSuccess: () -> Unit) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(state.signedIn) { if (state.signedIn) onSuccess() }
+    val title = when (state.mode) {
+        AuthMode.LOGIN -> "Вход"
+        AuthMode.REGISTER -> "Регистрация"
+        AuthMode.RESET_PASSWORD -> "Сброс пароля"
+    }
     Column(Modifier.fillMaxSize()) {
-        PlannerHeader("Вход", "Планируйте свои задачи", onBack)
-        Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            OutlinedTextField(value = "", onValueChange = {}, label = { Text("Электронная почта") }, enabled = false, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = "", onValueChange = {}, label = { Text("Пароль") }, visualTransformation = PasswordVisualTransformation(), enabled = false, modifier = Modifier.fillMaxWidth())
-            Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("Войти") }
-            Text("Авторизация недоступна в этой сборке", style = MaterialTheme.typography.bodyMedium)
+        PlannerHeader(title, "Планируйте свои задачи", onBack)
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            if (!state.configured) {
+                Text(
+                    "Авторизация недоступна: настройки Firebase не добавлены в приложение",
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            OutlinedTextField(
+                value = state.email, onValueChange = viewModel::setEmail,
+                label = { Text("Электронная почта") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = if (state.mode == AuthMode.RESET_PASSWORD) ImeAction.Done else ImeAction.Next,
+                ),
+                keyboardActions = KeyboardActions(onDone = { viewModel.submit() }),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (state.mode != AuthMode.RESET_PASSWORD) {
+                OutlinedTextField(
+                    value = state.password, onValueChange = viewModel::setPassword,
+                    label = { Text("Пароль") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = if (state.mode == AuthMode.LOGIN) ImeAction.Done else ImeAction.Next,
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { viewModel.submit() }),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            if (state.mode == AuthMode.REGISTER) {
+                OutlinedTextField(
+                    value = state.confirmation, onValueChange = viewModel::setConfirmation,
+                    label = { Text("Повторите пароль") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { viewModel.submit() }),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            state.message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+            Button(
+                onClick = viewModel::submit,
+                enabled = state.configured && !state.loading,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+            ) {
+                if (state.loading) CircularProgressIndicator(modifier = Modifier.height(24.dp), strokeWidth = 2.dp)
+                else Text(when (state.mode) {
+                    AuthMode.LOGIN -> "Войти"
+                    AuthMode.REGISTER -> "Создать аккаунт"
+                    AuthMode.RESET_PASSWORD -> "Отправить письмо"
+                })
+            }
+            when (state.mode) {
+                AuthMode.LOGIN -> {
+                    TextButton(onClick = { viewModel.setMode(AuthMode.REGISTER) }) { Text("Создать аккаунт") }
+                    TextButton(onClick = { viewModel.setMode(AuthMode.RESET_PASSWORD) }) { Text("Забыли пароль?") }
+                }
+                AuthMode.REGISTER, AuthMode.RESET_PASSWORD -> {
+                    TextButton(onClick = { viewModel.setMode(AuthMode.LOGIN) }) { Text("Вернуться ко входу") }
+                }
+            }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

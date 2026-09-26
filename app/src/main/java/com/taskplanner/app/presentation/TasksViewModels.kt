@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.taskplanner.app.domain.model.*
 import com.taskplanner.app.domain.repository.SearchHistoryRepository
+import com.taskplanner.app.domain.repository.AuthRepository
 import com.taskplanner.app.domain.repository.ThemeRepository
 import com.taskplanner.app.domain.usecase.TaskActions
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -26,22 +28,34 @@ data class TasksUiState(
 )
 
 @HiltViewModel
-class TasksViewModel @Inject constructor(private val actions: TaskActions) : ViewModel() {
+class TasksViewModel @Inject constructor(
+    private val actions: TaskActions,
+    auth: AuthRepository,
+) : ViewModel() {
     private val _state = MutableStateFlow(TasksUiState())
     val state: StateFlow<TasksUiState> = _state.asStateFlow()
-    init { refresh() }
+    private var refreshSequence = 0
+    init {
+        viewModelScope.launch {
+            auth.authState.collect {
+                _state.value = _state.value.copy(tasks = emptyList())
+                refresh()
+            }
+        }
+    }
 
     fun refresh() {
+        val sequence = ++refreshSequence
         val current = _state.value
         viewModelScope.launch {
             _state.value = current.copy(loading = true, error = null, requiresLogin = false)
             try {
                 val result = actions.list(TaskQuery(status = current.filter, sort = current.sort))
-                _state.value = _state.value.copy(loading = false, tasks = result.items)
+                if (sequence == refreshSequence) _state.value = _state.value.copy(loading = false, tasks = result.items)
             } catch (_: AuthenticationRequiredException) {
-                _state.value = _state.value.copy(loading = false, requiresLogin = true)
+                if (sequence == refreshSequence) _state.value = _state.value.copy(loading = false, tasks = emptyList(), requiresLogin = true)
             } catch (error: Exception) {
-                _state.value = _state.value.copy(loading = false, error = error.userMessage())
+                if (sequence == refreshSequence) _state.value = _state.value.copy(loading = false, error = error.userMessage())
             }
         }
     }
@@ -150,11 +164,20 @@ class SearchViewModel @Inject constructor(
     private val handle: SavedStateHandle,
     private val actions: TaskActions,
     private val historyRepository: SearchHistoryRepository,
+    auth: AuthRepository,
 ) : ViewModel() {
     val query: StateFlow<String> = handle.getStateFlow("query", "")
     val history = historyRepository.observe().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     private val _state = MutableStateFlow(SearchUiState())
     val state: StateFlow<SearchUiState> = _state.asStateFlow()
+    init {
+        viewModelScope.launch {
+            auth.authState.drop(1).collect {
+                handle["query"] = ""
+                _state.value = SearchUiState()
+            }
+        }
+    }
     fun setQuery(value: String) {
         handle["query"] = value
         if (value.isBlank()) _state.value = SearchUiState()
@@ -179,12 +202,18 @@ class SearchViewModel @Inject constructor(
 }
 
 @HiltViewModel
-class SettingsViewModel @Inject constructor(private val theme: ThemeRepository) : ViewModel() {
+class SettingsViewModel @Inject constructor(
+    private val theme: ThemeRepository,
+    private val auth: AuthRepository,
+) : ViewModel() {
     val darkMode = theme.darkMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val user = auth.authState.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     fun setDarkMode(enabled: Boolean) { viewModelScope.launch { theme.setDarkMode(enabled) } }
+    fun signOut() { auth.signOut() }
 }
 
 private fun Exception.userMessage(): String = when (this) {
-    is AuthenticationRequiredException, is TaskValidationException, is TaskRemoteException -> message ?: "Неизвестная ошибка"
+    is AuthenticationRequiredException, is TaskValidationException, is TaskRemoteException,
+    is AuthOperationException -> message ?: "Неизвестная ошибка"
     else -> "Не удалось выполнить действие. Повторите попытку"
 }

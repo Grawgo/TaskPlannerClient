@@ -92,7 +92,16 @@ private fun PlannerRoot(activity: ComponentActivity) {
                     SearchScreen(vm, onOpen = { nav.navigate("detail/$it") }, onLogin = { nav.navigate("login") })
                 }
                 composable("settings") {
-                    SettingsScreen(settings, onLogin = { nav.navigate("login") })
+                    SettingsScreen(
+                        settings,
+                        onLogin = { nav.navigate("login") },
+                        onSignedOut = {
+                            nav.navigate("tasks") {
+                                popUpTo("tasks") { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        },
+                    )
                 }
                 composable("detail/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) {
                     val vm: DetailViewModel = hiltViewModel()
@@ -105,7 +114,19 @@ private fun PlannerRoot(activity: ComponentActivity) {
                     val vm: EditorViewModel = hiltViewModel()
                     EditorScreen(vm, onBack = { nav.popBackStack() })
                 }
-                composable("login") { LoginPreviewScreen(onBack = { nav.popBackStack() }) }
+                composable("login") {
+                    val vm: AuthViewModel = hiltViewModel()
+                    AuthScreen(
+                        vm,
+                        onBack = { nav.popBackStack() },
+                        onSuccess = {
+                            nav.navigate("tasks") {
+                                popUpTo("tasks") { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        },
+                    )
+                }
             }
         }
     }

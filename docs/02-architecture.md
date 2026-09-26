@@ -8,7 +8,7 @@ flowchart LR
     VM --> UC[Domain use cases]
     UC --> REPO[Repository interfaces]
     REPO --> DATA[Data implementations]
-    DATA --> AUTH[Firebase Auth SDK]
+    DATA --> AUTH[Firebase Authentication REST API]
     DATA --> HTTP[Retrofit]
     DATA --> ROOM[Room: история поиска]
     DATA --> PREF[DataStore: тема]
@@ -26,7 +26,7 @@ flowchart LR
 ## Вход и доступ к данным
 
 1. Android-клиент регистрирует или авторизует пользователя через Firebase
-   Authentication по email и паролю.
+   Authentication по email и паролю через HTTPS API.
 2. Перед запросом к Ktor клиент получает Firebase ID-токен и отправляет
    его в `Authorization: Bearer <token>`.
 3. Ktor проверяет токен через Firebase Admin SDK и получает UID. При первом
@@ -49,6 +49,8 @@ Room хранит историю поиска с полями `ownerUid`, `query
 DataStore хранит одну настройку темы. Основным источником задач всегда
 остаётся сервер; локальное редактирование без сети в этой версии не
 предусмотрено.
+Сессия Firebase сохраняется отдельно в зашифрованном виде с ключом из
+Android Keystore. Пароль на устройстве не сохраняется.
 
 ## Разработка и демонстрация
 
