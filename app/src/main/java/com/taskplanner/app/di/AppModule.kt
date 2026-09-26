@@ -1,45 +1,46 @@
 package com.taskplanner.app.di
 
-import android.app.Application
+import android.content.Context
 import androidx.room.Room
-import com.taskplanner.app.feature_note.data.data_source.NoteDatabase
-import com.taskplanner.app.feature_note.data.repository.NoteRepositoryImpl
-import com.taskplanner.app.feature_note.domain.repository.NoteRepository
-import com.taskplanner.app.feature_note.domain.use_case.*
+import com.taskplanner.app.BuildConfig
+import com.taskplanner.app.data.local.SearchHistoryDao
+import com.taskplanner.app.data.local.SearchHistoryDatabase
+import com.taskplanner.app.data.remote.TaskApi
+import com.taskplanner.app.data.repository.*
+import com.taskplanner.app.domain.repository.*
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dagger.hilt.android.qualifiers.ApplicationContext
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
+abstract class RepositoryBindings {
+    @Binds abstract fun tasks(implementation: RemoteTaskRepository): TaskRepository
+    @Binds abstract fun history(implementation: RoomSearchHistoryRepository): SearchHistoryRepository
+    @Binds abstract fun theme(implementation: DataStoreThemeRepository): ThemeRepository
+    @Binds abstract fun session(implementation: NoSessionProvider): SessionProvider
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
 object AppModule {
+    @Provides @Singleton
+    fun retrofit(): Retrofit = Retrofit.Builder()
+        .baseUrl(BuildConfig.API_BASE_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
 
-    @Provides
-    @Singleton
-    fun provideNoteDatabase(app: Application): NoteDatabase {
-        return Room.databaseBuilder(
-            app,
-            NoteDatabase::class.java,
-            NoteDatabase.DATABASE_NAME
-        ).build()
-    }
+    @Provides @Singleton fun taskApi(retrofit: Retrofit): TaskApi = retrofit.create(TaskApi::class.java)
 
-    @Provides
-    @Singleton
-    fun provideNoteRepository(db: NoteDatabase): NoteRepository {
-        return NoteRepositoryImpl(db.noteDao)
-    }
+    @Provides @Singleton
+    fun searchDatabase(@ApplicationContext context: Context): SearchHistoryDatabase =
+        Room.databaseBuilder(context, SearchHistoryDatabase::class.java, "task_planner_search.db").build()
 
-    @Provides
-    @Singleton
-    fun provideNoteUseCases(repository: NoteRepository): NoteUseCases {
-        return NoteUseCases(
-            getNotes = GetNotes(repository),
-            deleteNote = DeleteNote(repository),
-            addNote = AddNote(repository),
-            getNote = GetNote(repository)
-        )
-    }
+    @Provides fun searchDao(database: SearchHistoryDatabase): SearchHistoryDao = database.searchHistoryDao()
 }
