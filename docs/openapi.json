@@ -558,11 +558,7 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "title",
-          "description",
-          "dueAt",
-          "priority",
-          "status"
+          "title"
         ],
         "properties": {
           "title": {
@@ -581,10 +577,12 @@
             "nullable": true
           },
           "priority": {
-            "$ref": "#/components/schemas/Priority"
+            "$ref": "#/components/schemas/Priority",
+            "default": "MEDIUM"
           },
           "status": {
-            "$ref": "#/components/schemas/TaskStatus"
+            "$ref": "#/components/schemas/TaskStatus",
+            "default": "TODO"
           }
         }
       },
