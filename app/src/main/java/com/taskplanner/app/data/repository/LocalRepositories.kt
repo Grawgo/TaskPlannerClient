@@ -5,7 +5,6 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import com.taskplanner.app.data.local.SearchHistoryDao
-import com.taskplanner.app.data.local.SearchHistoryEntity
 import com.taskplanner.app.domain.repository.AuthRepository
 import com.taskplanner.app.domain.repository.SearchHistoryRepository
 import com.taskplanner.app.domain.repository.SessionProvider
@@ -32,7 +31,7 @@ class RoomSearchHistoryRepository @Inject constructor(
     override suspend fun remember(query: String) {
         val uid = session.currentUid() ?: return
         val clean = query.trim().take(120)
-        if (clean.isNotEmpty()) dao.remember(SearchHistoryEntity(uid, clean, System.currentTimeMillis()))
+        if (clean.isNotEmpty()) dao.remember(uid, clean, System.currentTimeMillis())
     }
     override suspend fun clear() { session.currentUid()?.let { dao.clear(it) } }
 }

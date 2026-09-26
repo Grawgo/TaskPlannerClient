@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -170,34 +172,55 @@ class SearchViewModel @Inject constructor(
     val history = historyRepository.observe().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     private val _state = MutableStateFlow(SearchUiState())
     val state: StateFlow<SearchUiState> = _state.asStateFlow()
+    private var searchJob: Job? = null
+    private var resultQuery: String? = null
+    private var requestVersion = 0
     init {
         viewModelScope.launch {
             auth.authState.drop(1).collect {
+                requestVersion++
+                searchJob?.cancel()
+                resultQuery = null
                 handle["query"] = ""
                 _state.value = SearchUiState()
             }
         }
     }
     fun setQuery(value: String) {
-        handle["query"] = value
-        if (value.isBlank()) _state.value = SearchUiState()
+        val updated = value.take(120)
+        if (updated == query.value) return
+        requestVersion++
+        searchJob?.cancel()
+        resultQuery = null
+        handle["query"] = updated
+        _state.value = SearchUiState()
     }
     fun search() {
         val text = query.value.trim()
         if (text.isEmpty()) { _state.value = SearchUiState(); return }
-        viewModelScope.launch {
-            _state.value = _state.value.copy(loading = true, error = null, searched = true)
+        val version = ++requestVersion
+        searchJob?.cancel()
+        resultQuery = null
+        searchJob = viewModelScope.launch {
+            _state.value = SearchUiState(loading = true, searched = true)
             try {
                 val results = actions.list(TaskQuery(search = text)).items
+                if (version != requestVersion) return@launch
+                resultQuery = text
                 _state.value = SearchUiState(results = results, searched = true)
             } catch (_: AuthenticationRequiredException) {
-                _state.value = SearchUiState(searched = true, requiresLogin = true)
+                if (version == requestVersion) _state.value = SearchUiState(searched = true, requiresLogin = true)
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
-                _state.value = SearchUiState(searched = true, error = error.userMessage())
+                if (version == requestVersion) _state.value = SearchUiState(searched = true, error = error.userMessage())
             }
         }
     }
-    fun openResult() { viewModelScope.launch { historyRepository.remember(query.value) } }
+    fun openResult() {
+        val completedQuery = resultQuery ?: return
+        viewModelScope.launch { historyRepository.remember(completedQuery) }
+    }
     fun clearHistory() { viewModelScope.launch { historyRepository.clear() } }
 }
 

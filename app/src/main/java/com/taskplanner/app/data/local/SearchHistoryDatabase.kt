@@ -21,6 +21,9 @@ interface SearchHistoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: SearchHistoryEntity)
 
+    @Query("SELECT COALESCE(MAX(selectedAt), 0) FROM search_history WHERE ownerUid = :uid")
+    suspend fun latestSelectedAt(uid: String): Long
+
     @Query("DELETE FROM search_history WHERE ownerUid = :uid AND query NOT IN (SELECT query FROM search_history WHERE ownerUid = :uid ORDER BY selectedAt DESC, query DESC LIMIT 10)")
     suspend fun trim(uid: String)
 
@@ -28,9 +31,9 @@ interface SearchHistoryDao {
     suspend fun clear(uid: String)
 
     @Transaction
-    suspend fun remember(entity: SearchHistoryEntity) {
-        upsert(entity)
-        trim(entity.ownerUid)
+    suspend fun remember(uid: String, query: String, now: Long) {
+        upsert(SearchHistoryEntity(uid, query, maxOf(now, latestSelectedAt(uid) + 1)))
+        trim(uid)
     }
 }
 

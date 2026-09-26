@@ -146,28 +146,48 @@ fun SearchScreen(viewModel: SearchViewModel, onOpen: (String) -> Unit, onLogin: 
             Button(onClick = { keyboard?.hide(); viewModel.search() }, modifier = Modifier.padding(start = 20.dp, top = 12.dp)) { Text("Искать") }
         }
         when {
-            state.loading -> Box(Modifier.fillMaxWidth().padding(50.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            state.requiresLogin -> CenterMessage("Войдите в аккаунт", "После входа вы сможете искать свои задачи", "Войти", onLogin)
+            state.loading -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            state.requiresLogin -> SearchFeedback(Modifier.weight(1f), "Войдите в аккаунт", "После входа вы сможете искать свои задачи", "Войти", onLogin)
             state.error != null -> {
-                CenterMessage("Не удалось выполнить поиск", state.error!!, "Обновить", viewModel::search)
+                SearchFeedback(Modifier.weight(1f), "Не удалось выполнить поиск", state.error!!, "Обновить", viewModel::search)
             }
             query.isBlank() -> {
-                if (history.isEmpty()) CenterMessage("Поиск задач", "Введите название или часть описания")
-                else {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Недавние запросы", style = MaterialTheme.typography.titleMedium)
-                        TextButton(onClick = viewModel::clearHistory) { Text("Очистить историю") }
+                if (history.isEmpty()) SearchFeedback(Modifier.weight(1f), "Поиск задач", "Введите название или часть описания")
+                else LazyColumn(Modifier.weight(1f)) {
+                    item {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Недавние запросы", style = MaterialTheme.typography.titleMedium)
+                            TextButton(onClick = viewModel::clearHistory) { Text("Очистить историю") }
+                        }
                     }
-                    history.forEach { item -> TextButton(onClick = { viewModel.setQuery(item); viewModel.search() }, modifier = Modifier.padding(horizontal = 20.dp)) { Text(item) } }
+                    items(history, key = { it }) { item ->
+                        TextButton(
+                            onClick = { viewModel.setQuery(item); viewModel.search() },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        ) { Text(item) }
+                    }
                 }
             }
-            state.searched && state.results.isEmpty() -> CenterMessage("Ничего не найдено", "Попробуйте изменить запрос")
-            state.searched -> LazyColumn {
+            state.searched && state.results.isEmpty() -> SearchFeedback(Modifier.weight(1f), "Ничего не найдено", "Попробуйте изменить запрос")
+            state.searched -> LazyColumn(Modifier.weight(1f)) {
                 items(state.results, key = { it.id }) { task ->
                     TaskCard(task, onOpen = { viewModel.openResult(); onOpen(task.id) })
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SearchFeedback(
+    modifier: Modifier,
+    title: String,
+    message: String,
+    action: String? = null,
+    onAction: (() -> Unit)? = null,
+) {
+    Box(modifier.verticalScroll(rememberScrollState())) {
+        CenterMessage(title, message, action, onAction)
     }
 }
 
