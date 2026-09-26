@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -60,7 +61,8 @@ fun TasksScreen(
             PlannerHeader("Мои задачи", "Все ваши планы под рукой")
             OutlinedButton(onClick = onSearch, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
                 Icon(Icons.Default.Search, contentDescription = null)
-                Text("  Найти задачу")
+                Spacer(Modifier.width(8.dp))
+                Text("Найти задачу")
             }
             Row(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
