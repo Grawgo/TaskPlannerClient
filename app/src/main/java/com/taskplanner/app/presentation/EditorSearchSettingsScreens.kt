@@ -198,7 +198,7 @@ fun LoginPreviewScreen(onBack: () -> Unit) {
             OutlinedTextField(value = "", onValueChange = {}, label = { Text("Электронная почта") }, enabled = false, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value = "", onValueChange = {}, label = { Text("Пароль") }, visualTransformation = PasswordVisualTransformation(), enabled = false, modifier = Modifier.fillMaxWidth())
             Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("Войти") }
-            Text("Вход и регистрация будут подключены на следующем этапе", style = MaterialTheme.typography.bodyMedium)
+            Text("Авторизация недоступна в этой сборке", style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
