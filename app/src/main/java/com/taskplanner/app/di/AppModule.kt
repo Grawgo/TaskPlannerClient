@@ -1,6 +1,7 @@
 package com.taskplanner.app.di
 
 import android.content.Context
+import android.os.Build
 import androidx.room.Room
 import com.taskplanner.app.BuildConfig
 import com.taskplanner.app.data.local.SearchHistoryDao
@@ -40,9 +41,17 @@ object AppModule {
 
     @Provides @Singleton
     fun retrofit(): Retrofit = Retrofit.Builder()
-        .baseUrl(BuildConfig.API_BASE_URL)
+        .baseUrl(debugApiBaseUrl())
         .addConverterFactory(GsonConverterFactory.create())
         .build()
+
+    private fun debugApiBaseUrl(): String {
+        if (!BuildConfig.DEBUG) return BuildConfig.API_BASE_URL
+        val emulator = Build.HARDWARE.contains("ranchu", ignoreCase = true) ||
+            Build.HARDWARE.contains("goldfish", ignoreCase = true) ||
+            Build.FINGERPRINT.startsWith("generic", ignoreCase = true)
+        return if (emulator) BuildConfig.API_BASE_URL else "http://127.0.0.1:8080/"
+    }
 
     @Provides @Singleton fun taskApi(retrofit: Retrofit): TaskApi = retrofit.create(TaskApi::class.java)
 
