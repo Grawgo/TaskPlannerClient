@@ -13,7 +13,7 @@ flowchart LR
     DATA --> ROOM[Room: история поиска]
     DATA --> PREF[DataStore: тема]
     HTTP --> API[Ktor REST API]
-    API --> VERIFY[Firebase Admin: проверка токена]
+    API --> VERIFY[Проверка Firebase ID-токена]
     API --> SERVICE[Task service]
     SERVICE --> PG[(PostgreSQL)]
 ```
@@ -29,7 +29,8 @@ flowchart LR
    Authentication по email и паролю через HTTPS API.
 2. Перед запросом к Ktor клиент получает Firebase ID-токен и отправляет
    его в `Authorization: Bearer <token>`.
-3. Ktor проверяет токен через Firebase Admin SDK и получает UID. При первом
+3. Ktor проверяет подпись токена по открытым сертификатам Google, срок действия,
+   издателя и проект, затем получает UID. При первом
    обращении создаёт строку пользователя в PostgreSQL.
 4. Все запросы к таблице задач ограничиваются этим UID. UID из параметров
    или тела запроса не принимается.
@@ -60,4 +61,4 @@ Android Keystore. Пароль на устройстве не сохраняет
 из переменной окружения. Миграции БД одинаковы в обеих средах.
 
 Для публичных репозиториев будут отдельные проекты клиента и сервера.
-Файлы Firebase Admin и строки подключения в них не публикуются.
+Строки подключения к базе данных и ключ Firebase API хранятся вне Git.

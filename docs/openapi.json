@@ -482,7 +482,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "Firebase ID-токен, проверяемый Firebase Admin SDK"
+        "description": "Firebase ID-токен, проверяемый по открытым сертификатам Google"
       }
     },
     "schemas": {

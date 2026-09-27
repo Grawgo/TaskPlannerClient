@@ -27,10 +27,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -52,9 +49,8 @@ fun TasksScreen(
     onLogin: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var resumedOnce by remember { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        if (resumedOnce) viewModel.refresh() else resumedOnce = true
+        viewModel.refresh()
     }
     Box(Modifier.fillMaxSize()) {
         Column {
@@ -100,9 +96,8 @@ fun TasksScreen(
 @Composable
 fun DetailScreen(viewModel: DetailViewModel, onBack: () -> Unit, onEdit: (String) -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var resumedOnce by remember { mutableStateOf(false) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        if (resumedOnce) viewModel.refresh() else resumedOnce = true
+        viewModel.refresh()
     }
     val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxSize()) {
