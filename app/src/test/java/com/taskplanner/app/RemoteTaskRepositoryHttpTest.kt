@@ -91,7 +91,7 @@ class RemoteTaskRepositoryHttpTest {
                     }
                 }
             } catch (_: SocketException) {
-                // Closing the listener ends the test server.
+                // Закрытие сокета завершает работу тестового сервера.
             }
         }
         try { block("http://127.0.0.1:${server.localPort}/") }

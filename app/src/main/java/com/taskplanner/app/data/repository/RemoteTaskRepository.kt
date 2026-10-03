@@ -3,6 +3,7 @@ package com.taskplanner.app.data.repository
 import com.taskplanner.app.data.remote.TaskApi
 import com.taskplanner.app.data.remote.TaskDto
 import com.taskplanner.app.data.remote.TaskInputDto
+import com.taskplanner.app.data.remote.LanServerNotFoundException
 import com.taskplanner.app.domain.model.*
 import com.taskplanner.app.domain.repository.SessionProvider
 import com.taskplanner.app.domain.repository.TaskRepository
@@ -49,16 +50,20 @@ class RemoteTaskRepository @Inject constructor(
                     if (retry.code() == 401) throw AuthenticationRequiredException()
                     throw retry.toDomainError()
                 }
-                catch (_: IOException) {
-                    throw TaskRemoteException("Нет соединения с сервером. Проверьте сеть и повторите")
+                catch (error: IOException) {
+                    throw error.toConnectionError()
                 }
             }
             throw error.toDomainError()
-        } catch (_: IOException) {
-            throw TaskRemoteException("Нет соединения с сервером. Проверьте сеть и повторите")
+        } catch (error: IOException) {
+            throw error.toConnectionError()
         }
     }
 }
+
+private fun IOException.toConnectionError(): TaskRemoteException =
+    TaskRemoteException(if (this is LanServerNotFoundException) message.orEmpty()
+    else "Нет соединения с сервером. Проверьте сеть и повторите")
 
 private fun HttpException.toDomainError(): TaskRemoteException = when (code()) {
     404 -> TaskRemoteException("Задача не найдена")

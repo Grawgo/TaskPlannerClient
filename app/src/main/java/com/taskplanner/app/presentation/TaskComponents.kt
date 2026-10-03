@@ -35,7 +35,7 @@ fun PlannerHeader(title: String, subtitle: String? = null, onBack: (() -> Unit)?
         if (onBack != null) IconButton(onClick = onBack) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
         }
-        Column(modifier = Modifier.padding(start = if (onBack == null) 0.dp else 8.dp)) {
+        Column(modifier = Modifier.weight(1f).padding(start = if (onBack == null) 0.dp else 8.dp)) {
             Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
             if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

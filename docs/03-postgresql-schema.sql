@@ -1,5 +1,5 @@
--- Проект логической схемы для PostgreSQL 13+.
--- Firebase Authentication хранит email и пароль; в этой БД — только UID.
+-- Логическая схема для PostgreSQL 13+.
+-- Учётные данные обрабатывает Firebase Authentication; в этой БД хранится UID.
 
 CREATE TABLE app_users (
     firebase_uid VARCHAR(128) PRIMARY KEY,
@@ -32,4 +32,4 @@ CREATE INDEX tasks_owner_updated_idx
     ON tasks (owner_uid, updated_at DESC, id DESC);
 
 -- Поиск выполняется по title/description с параметризованным ILIKE.
--- Для масштаба курсового проекта отдельный полнотекстовый индекс не нужен.
+-- Отдельный полнотекстовый индекс не используется.

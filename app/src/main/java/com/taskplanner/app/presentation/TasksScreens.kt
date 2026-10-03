@@ -3,6 +3,7 @@ package com.taskplanner.app.presentation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -38,6 +41,7 @@ import androidx.lifecycle.Lifecycle
 import com.taskplanner.app.domain.model.TaskSort
 import com.taskplanner.app.domain.model.TaskStatus
 import com.taskplanner.app.domain.model.TaskStatusFilter
+import com.taskplanner.app.domain.model.TaskPriority
 import kotlinx.coroutines.launch
 
 @Composable
@@ -53,37 +57,44 @@ fun TasksScreen(
         viewModel.refresh()
     }
     Box(Modifier.fillMaxSize()) {
-        Column {
-            PlannerHeader("Мои задачи", "Все ваши планы под рукой")
-            OutlinedButton(onClick = onSearch, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-                Icon(Icons.Default.Search, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Найти задачу")
-            }
-            Row(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(
-                    TaskStatusFilter.ALL to "Все",
-                    TaskStatusFilter.ACTIVE to "Активные",
-                    TaskStatusFilter.DONE to "Готово",
-                ).forEach { (filter, label) ->
-                    FilterChip(selected = state.filter == filter, onClick = { viewModel.setFilter(filter) }, label = { Text(label) })
+        LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 100.dp)) {
+            item {
+                PlannerHeader("Мои задачи", "Все ваши планы под рукой")
+                OutlinedButton(onClick = onSearch, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                    Icon(Icons.Default.Search, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Найти задачу")
                 }
-            }
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Задачи", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                OutlinedButton(onClick = { viewModel.setSort(if (state.sort == TaskSort.UPDATED) TaskSort.DUE else TaskSort.UPDATED) }) {
-                    Text(if (state.sort == TaskSort.UPDATED) "По изменению" else "По сроку")
+                FlowRow(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        TaskStatusFilter.ALL to "Все",
+                        TaskStatusFilter.ACTIVE to "Активные",
+                        TaskStatusFilter.DONE to "Готово",
+                    ).forEach { (filter, label) ->
+                        FilterChip(selected = state.filter == filter, onClick = { viewModel.setFilter(filter) }, label = { Text(label) })
+                    }
+                }
+                FlowRow(modifier = Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = state.priority == null, onClick = { viewModel.setPriority(null) }, label = { Text("Любой приоритет") })
+                    TaskPriority.entries.forEach { priority ->
+                        FilterChip(selected = state.priority == priority, onClick = { viewModel.setPriority(priority) },
+                            label = { Text(priority.label().removeSuffix(" приоритет")) })
+                    }
+                }
+                FlowRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Задачи", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    OutlinedButton(onClick = { viewModel.setSort(if (state.sort == TaskSort.UPDATED) TaskSort.DUE else TaskSort.UPDATED) }) {
+                        Text(if (state.sort == TaskSort.UPDATED) "По изменению" else "По сроку")
+                    }
                 }
             }
             when {
-                state.loading -> Box(Modifier.fillMaxWidth().padding(50.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                state.requiresLogin -> CenterMessage("Войдите в аккаунт", "После входа здесь появятся ваши задачи", "Войти", onLogin)
-                state.error != null -> CenterMessage("Не удалось загрузить задачи", state.error!!, "Повторить", viewModel::refresh)
-                state.tasks.isEmpty() -> CenterMessage("Пока нет задач", "Создайте первую задачу, чтобы начать планирование", "Создать задачу", onCreate)
-                else -> LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 90.dp)) {
-                    items(state.tasks, key = { it.id }) { task ->
-                        TaskCard(task, onOpen = { onOpen(task.id) }, onToggle = { viewModel.toggleCompleted(task) })
-                    }
+                state.loading -> item { Box(Modifier.fillMaxWidth().padding(50.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+                state.requiresLogin -> item { CenterMessage("Войдите в аккаунт", "После входа здесь появятся ваши задачи", "Войти", onLogin) }
+                state.error != null -> item { CenterMessage("Не удалось загрузить задачи", state.error!!, "Повторить", viewModel::refresh) }
+                state.tasks.isEmpty() -> item { CenterMessage("Пока нет задач", "Создайте первую задачу, чтобы начать планирование", "Создать задачу", onCreate) }
+                else -> items(state.tasks, key = { it.id }) { task ->
+                    TaskCard(task, onOpen = { onOpen(task.id) }, onToggle = { viewModel.toggleCompleted(task) })
                 }
             }
         }
@@ -100,7 +111,7 @@ fun DetailScreen(viewModel: DetailViewModel, onBack: () -> Unit, onEdit: (String
         viewModel.refresh()
     }
     val scope = rememberCoroutineScope()
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
         PlannerHeader("Задача", onBack = onBack)
         when {
             state.loading -> Box(Modifier.fillMaxWidth().padding(50.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }

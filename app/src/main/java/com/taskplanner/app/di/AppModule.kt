@@ -7,6 +7,8 @@ import com.taskplanner.app.BuildConfig
 import com.taskplanner.app.data.local.SearchHistoryDao
 import com.taskplanner.app.data.local.SearchHistoryDatabase
 import com.taskplanner.app.data.remote.TaskApi
+import com.taskplanner.app.data.remote.LanApiInterceptor
+import com.taskplanner.app.data.remote.LanServerDiscovery
 import com.taskplanner.app.data.remote.FirebaseIdentityApi
 import com.taskplanner.app.data.remote.FirebaseSecureTokenApi
 import com.taskplanner.app.data.repository.*
@@ -19,6 +21,7 @@ import dagger.hilt.components.SingletonComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import okhttp3.OkHttpClient
 import javax.inject.Singleton
 import javax.inject.Named
 
@@ -40,17 +43,17 @@ object AppModule {
     fun firebaseApiKey(): String = BuildConfig.FIREBASE_API_KEY
 
     @Provides @Singleton
-    fun retrofit(): Retrofit = Retrofit.Builder()
-        .baseUrl(debugApiBaseUrl())
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
-
-    private fun debugApiBaseUrl(): String {
-        if (!BuildConfig.DEBUG) return BuildConfig.API_BASE_URL
+    fun retrofit(): Retrofit {
         val emulator = Build.HARDWARE.contains("ranchu", ignoreCase = true) ||
             Build.HARDWARE.contains("goldfish", ignoreCase = true) ||
             Build.FINGERPRINT.startsWith("generic", ignoreCase = true)
-        return if (emulator) BuildConfig.API_BASE_URL else "http://127.0.0.1:8080/"
+        val client = OkHttpClient.Builder()
+        if (!emulator) client.addInterceptor(LanApiInterceptor(LanServerDiscovery()))
+        return Retrofit.Builder()
+            .baseUrl(BuildConfig.API_BASE_URL)
+            .client(client.build())
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
     }
 
     @Provides @Singleton fun taskApi(retrofit: Retrofit): TaskApi = retrofit.create(TaskApi::class.java)

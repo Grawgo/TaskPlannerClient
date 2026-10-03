@@ -48,6 +48,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
 import com.taskplanner.app.domain.model.TaskPriority
 import com.taskplanner.app.domain.model.TaskStatus
 import kotlinx.coroutines.launch
@@ -79,7 +81,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
             )
             Text("Срок выполнения", style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = {
                     val initial = state.dueAt?.let { runCatching { Instant.parse(it).atZone(ZoneId.systemDefault()).toLocalDateTime() }.getOrNull() }
                         ?: LocalDateTime.now().plusDays(1)
@@ -121,6 +123,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
 
 @Composable
 fun SearchScreen(viewModel: SearchViewModel, onOpen: (String) -> Unit, onLogin: () -> Unit) {
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshResults() }
     val query by viewModel.query.collectAsStateWithLifecycle()
     val state by viewModel.state.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
@@ -195,7 +198,7 @@ private fun SearchFeedback(
 fun SettingsScreen(viewModel: SettingsViewModel, onLogin: () -> Unit, onSignedOut: () -> Unit) {
     val darkMode by viewModel.darkMode.collectAsStateWithLifecycle()
     val user by viewModel.user.collectAsStateWithLifecycle()
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         PlannerHeader("Настройки")
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp),

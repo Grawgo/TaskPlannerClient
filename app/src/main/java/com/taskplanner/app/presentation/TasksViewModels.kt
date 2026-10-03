@@ -27,6 +27,7 @@ data class TasksUiState(
     val requiresLogin: Boolean = false,
     val filter: TaskStatusFilter = TaskStatusFilter.ALL,
     val sort: TaskSort = TaskSort.UPDATED,
+    val priority: TaskPriority? = null,
 )
 
 @HiltViewModel
@@ -37,6 +38,7 @@ class TasksViewModel @Inject constructor(
     private val _state = MutableStateFlow(TasksUiState())
     val state: StateFlow<TasksUiState> = _state.asStateFlow()
     private var refreshSequence = 0
+    private var refreshJob: Job? = null
     init {
         viewModelScope.launch {
             auth.authState.collect {
@@ -49,14 +51,16 @@ class TasksViewModel @Inject constructor(
     fun refresh() {
         val sequence = ++refreshSequence
         val current = _state.value
-        viewModelScope.launch {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
             _state.value = current.copy(loading = true, error = null, requiresLogin = false)
             try {
-                val result = actions.list(TaskQuery(status = current.filter, sort = current.sort))
+                val result = actions.listAll(TaskQuery(status = current.filter, sort = current.sort, priority = current.priority))
                 if (sequence == refreshSequence) _state.value = _state.value.copy(loading = false, tasks = result.items)
             } catch (_: AuthenticationRequiredException) {
                 if (sequence == refreshSequence) _state.value = _state.value.copy(loading = false, tasks = emptyList(), requiresLogin = true)
             } catch (error: Exception) {
+                if (error is CancellationException) throw error
                 if (sequence == refreshSequence) _state.value = _state.value.copy(loading = false, error = error.userMessage())
             }
         }
@@ -64,6 +68,7 @@ class TasksViewModel @Inject constructor(
 
     fun setFilter(filter: TaskStatusFilter) { _state.value = _state.value.copy(filter = filter); refresh() }
     fun setSort(sort: TaskSort) { _state.value = _state.value.copy(sort = sort); refresh() }
+    fun setPriority(priority: TaskPriority?) { _state.value = _state.value.copy(priority = priority); refresh() }
     fun toggleCompleted(task: Task) {
         viewModelScope.launch {
             try { actions.setCompleted(task, task.status != TaskStatus.DONE); refresh() }
@@ -82,12 +87,17 @@ class DetailViewModel @Inject constructor(
     val id: String = checkNotNull(handle["id"])
     private val _state = MutableStateFlow(DetailUiState())
     val state: StateFlow<DetailUiState> = _state.asStateFlow()
+    private var refreshJob: Job? = null
     init { refresh() }
     fun refresh() {
-        viewModelScope.launch {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null)
             try { _state.value = DetailUiState(task = actions.get(id), loading = false) }
-            catch (error: Exception) { _state.value = DetailUiState(error = error.userMessage(), loading = false) }
+            catch (error: Exception) {
+                if (error is CancellationException) throw error
+                _state.value = DetailUiState(error = error.userMessage(), loading = false)
+            }
         }
     }
     fun toggleCompleted() {
@@ -204,7 +214,7 @@ class SearchViewModel @Inject constructor(
         searchJob = viewModelScope.launch {
             _state.value = SearchUiState(loading = true, searched = true)
             try {
-                val results = actions.list(TaskQuery(search = text)).items
+                val results = actions.listAll(TaskQuery(search = text)).items
                 if (version != requestVersion) return@launch
                 resultQuery = text
                 _state.value = SearchUiState(results = results, searched = true)
@@ -221,6 +231,7 @@ class SearchViewModel @Inject constructor(
         val completedQuery = resultQuery ?: return
         viewModelScope.launch { historyRepository.remember(completedQuery) }
     }
+    fun refreshResults() { if (resultQuery != null && !_state.value.loading) search() }
     fun clearHistory() { viewModelScope.launch { historyRepository.clear() } }
 }
 
