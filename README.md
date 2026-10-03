@@ -15,7 +15,8 @@ Hilt, Retrofit, Room и DataStore.
 - Светлая и тёмная темы с сохранением выбора.
 
 Задачи сохраняются в PostgreSQL через отдельный Ktor-сервер
-`TaskPlannerServer`. Room хранит историю поиска, DataStore — настройку темы.
+[TaskPlannerServer](https://github.com/Grawgo/TaskPlannerServer). Room
+хранит историю поиска, DataStore — настройку темы.
 
 ## Окружение и сборка
 
